@@ -30,36 +30,49 @@ if response.status_code == 200:
     # Process the data
     data = response.json()
     for row in data['value']:
-        key = row['Object_Caption_to_Run']
+        key = row['Description']
         value = row['Status']
         final_d[key] = value
 else:
-    print('Failed to access the API:', response.status_code)
-    
+    with open ('logfile.log', 'a') as file:
+            file.write(f"""{formatDateTime} Problem z uzyskaniem odpowiedzi""")
+#for k,v in final_d.items():
+#    print(k, v)
 body = "" 
+ignore_queues = []
+queues_with_error = []
 for k,v in final_d.items():
-    if v != 'Ready':
+    if v == 'Error' and k not in ignore_queues:
+        queues_with_error.append(k)
         body += f"""<h1 style="color:red">Kolejka: {k}</h1>\n
         <h2>Status: {v}</h2>\n"""
-        
-print(body)
+#print(body)   
 to_address = json.loads(to_address_str)
-print(to_address)
 msg = MIMEMultipart()
 msg['From'] = from_address
 msg["To"] = ", ".join(to_address)
 msg['Subject'] = f"Sprzawdzenie kolejek data: {formatDateTime}."
-print(", ".join(to_address))
+#print(", ".join(to_address))
 
 
 msg.attach(MIMEText(body, 'html'))
-try:
-    server = smtplib.SMTP('smtp-mail.outlook.com', 587)
-    server.starttls()
-    server.login(from_address, password)
-    text = msg.as_string()
-    server.sendmail(from_address, to_address, text)
-    server.quit()               
-except Exception as e:
-    with open ('logfile.log', 'a') as file:
+if body:
+    try:
+        server = smtplib.SMTP('smtp-mail.outlook.com', 587)
+        server.starttls()
+        server.login(from_address, password)
+        text = msg.as_string()
+        server.sendmail(from_address, to_address, text)
+        server.quit()               
+    except Exception as e:
+        with open ('logfile.log', 'a') as file:
             file.write(f"""{formatDateTime} Problem z wysłaniem na maile\n{str(e)}\n""")
+
+with open ('executes.log', 'a') as file:
+    if queues_with_error:
+        file.write(f"""{formatDateTime}\n""")
+        for queue in queues_with_error:
+            file.write(f"""{queue}\n""")
+    else:
+        file.write(f"""{formatDateTime} - Brak błędów\n""")
+    
