@@ -160,3 +160,6 @@ cython_debug/
 #.idea/
 .log
 .bat
+dist
+build
+vierual_quques
