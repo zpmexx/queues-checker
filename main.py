@@ -22,10 +22,6 @@ def get_data():
     response = requests.get(url, auth=HTTPBasicAuth(username, user_password))
     if response.status_code == 200:
         data = response.json()
-        with open ('test.txt', 'w') as file:
-            for row in data['value']:
-                print(row)
-                print('----------------------------------------------------------------------------------------')
         #print(len(data['value']))
         finallist = []
         numbers = []
@@ -78,6 +74,7 @@ class MyAppLayout(BoxLayout):
                 total_height += new_text_input.height
         else:
             text_content = "Brak błędów - możesz zjeść ciastko"
+            print("elo")
             new_text_input = TextInput(text=text_content, readonly=True, halign="left", size_hint_y=None, height=200)
             self.inputs_layout.add_widget(new_text_input)
             total_height += new_text_input.height
@@ -86,9 +83,9 @@ class MyAppLayout(BoxLayout):
         new_text_input = TextInput(text=text_content, readonly=True, halign="left", size_hint_y=None, height=200, multiline=True)
 
         # Update the height of the inputs_layout to accommodate all child widgets
-        self.inputs_layout.height = total_height
+        self.inputs_layout.height = total_height + 200
         self.inputs_layout.add_widget(new_text_input)
-        total_height += new_text_input.height
+        #total_height += new_text_input.height
 class TestApp(App):
     def build(self):
         return MyAppLayout()
