@@ -163,3 +163,5 @@ cython_debug/
 dist
 build
 vierual_quques
+.buildozer/
+platform-tools/
