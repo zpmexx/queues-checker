@@ -18,6 +18,7 @@ password = os.getenv('password')
 username = os.getenv('bc_username')
 user_password = os.getenv('bc_password')
 url = os.getenv('bc_url')
+mdms_url = os.getenv('bc_mdms_url')
 
 now = datetime.now()
 formatDateTime = now.strftime("%d/%m/%Y %H:%M")
@@ -40,9 +41,28 @@ if response.status_code == 200:
 else:
     with open ('logfile.log', 'a') as file:
             file.write(f"""{formatDateTime} Problem z uzyskaniem odpowiedzi""")
+            
+            
+#MDMS
+response = requests.get(mdms_url, auth=HTTPBasicAuth(username, user_password))
+if response.status_code == 200:
+    # Process the data
+    data = response.json()
+    for row in data['value']:
+        key = row['ID']
+        final_d[key] = {'Status': row['Status'],
+                        'Object_ID_to_Run': row['Object_ID_to_Run'],
+                        'Object_Caption_to_Run': row['Object_Caption_to_Run'],
+                        'Description': row['Description'],
+                        'Error_Message': row['Error_Message'],
+                         }        
+else:
+    with open ('logfile.log', 'a') as file:
+            file.write(f"""{formatDateTime} Problem z uzyskaniem odpowiedzi""")
 #for k,v in final_d.items():
 #    print(k, v)
 body = "" 
+
 ignore_queues = [] #by Object_ID_to_Run INT
 queues_with_error = []
 for k,v in final_d.items():
@@ -58,18 +78,20 @@ msg["To"] = ", ".join(to_address)
 msg['Subject'] = f"Sprzawdzenie kolejek data: {formatDateTime}."
 #print(", ".join(to_address))
 #body = ""
-msg.attach(MIMEText(body, 'html'))
 if body:
-    try:
-        server = smtplib.SMTP('smtp-mail.outlook.com', 587)
-        server.starttls()
-        server.login(from_address, password)
-        text = msg.as_string()
-        server.sendmail(from_address, to_address, text)
-        server.quit()               
-    except Exception as e:
-        with open ('logfile.log', 'a') as file:
-            file.write(f"""{formatDateTime} Problem z wysłaniem na maile\n{str(e)}\n""")
+    msg.attach(MIMEText(body, 'html'))
+else:
+    msg.attach(MIMEText("Brak błędów.", 'html'))
+try:
+    server = smtplib.SMTP('smtp-mail.outlook.com', 587)
+    server.starttls()
+    server.login(from_address, password)
+    text = msg.as_string()
+    server.sendmail(from_address, to_address, text)
+    server.quit()               
+except Exception as e:
+    with open ('logfile.log', 'a') as file:
+        file.write(f"""{formatDateTime} Problem z wysłaniem na maile\n{str(e)}\n""")
 
 with open ('executes.log', 'a') as file:
     if queues_with_error:
@@ -78,4 +100,3 @@ with open ('executes.log', 'a') as file:
             file.write(f"""{queue}\n""")
     else:
         file.write(f"""{formatDateTime} - Brak błędów\n""")
-    
