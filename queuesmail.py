@@ -71,6 +71,45 @@ for k,v in final_d.items():
         body += f"""<h1 style="color:red">Kolejka: {v['Object_Caption_to_Run']} - {v['Description']}</h1>\n
         <h2>Bład: {v['Error_Message']}</h2>\n"""
 #print(body)   
+
+bc_currency = os.getenv('bc_currency')
+mdms_currency = os.getenv('mdms_currency')
+nbpEurUrl = os.getenv('nbpEurUrl')
+
+#nbp
+response = requests.get(nbpEurUrl, auth=HTTPBasicAuth(username, user_password))
+if response.status_code == 200:
+    data = response.json()
+    # print(data)
+    nbpEur = data['rates'][0]['mid']
+else:
+    body += f"Problem z odpytaniem strony NBP.\n"
+ 
+#cdrl
+response = requests.get(bc_currency, auth=HTTPBasicAuth(username, user_password))
+if response.status_code == 200:
+    data = response.json()
+    for line in data['value']:
+        if line['Code'] == 'EUR':
+            if line['ExchangeRateAmt'] != nbpEur:
+                body += f"Błedna waluta na CDRL.\n Poprawna -> {nbpEur} obecna -> {line['ExchangeRateAmt']}"
+            break
+else:
+    body += f"Problem z wczytaniem waluty na CDRL"
+    
+#mdms_currency
+response = requests.get(mdms_currency, auth=HTTPBasicAuth(username, user_password))
+if response.status_code == 200:
+    data = response.json()
+    for line in data['value']:
+        if line['Code'] == 'EUR':
+            if line['ExchangeRateAmt'] != nbpEur:
+                body += f"Błedna waluta na MDMS.\n Poprawna -> {nbpEur} obecna -> {line['ExchangeRateAmt']}"
+            break
+else:
+    body += f"Problem z wczytaniem waluty na MDMS"
+
+
 to_address = json.loads(to_address_str)
 msg = MIMEMultipart()
 msg['From'] = from_address
@@ -81,7 +120,7 @@ msg['Subject'] = f"Sprzawdzenie kolejek data: {formatDateTime}."
 if body:
     msg.attach(MIMEText(body, 'html'))
 else:
-    msg.attach(MIMEText("Brak błędów.", 'html'))
+    msg.attach(MIMEText("Brak błędów. Waluty ok.", 'html'))
 try:
     server = smtplib.SMTP('smtp-mail.outlook.com', 587)
     server.starttls()
