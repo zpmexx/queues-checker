@@ -8,6 +8,7 @@ import json
 from requests.auth import HTTPBasicAuth
 import os
 
+
 load_dotenv()
 #mail
 from_address = os.getenv('from_address')
@@ -75,6 +76,7 @@ for k,v in final_d.items():
 bc_currency = os.getenv('bc_currency')
 mdms_currency = os.getenv('mdms_currency')
 nbpEurUrl = os.getenv('nbpEurUrl')
+currencyStatus = 0 #chaning if theres any problem with currencies
 
 #nbp
 response = requests.get(nbpEurUrl, auth=HTTPBasicAuth(username, user_password))
@@ -84,6 +86,7 @@ if response.status_code == 200:
     nbpEur = data['rates'][0]['mid']
 else:
     body += f"Problem z odpytaniem strony NBP.\n"
+    currencyStatus = 1
  
 #cdrl
 response = requests.get(bc_currency, auth=HTTPBasicAuth(username, user_password))
@@ -96,6 +99,7 @@ if response.status_code == 200:
             break
 else:
     body += f"Problem z wczytaniem waluty na CDRL"
+    currencyStatus = 1
     
 #mdms_currency
 response = requests.get(mdms_currency, auth=HTTPBasicAuth(username, user_password))
@@ -108,7 +112,10 @@ if response.status_code == 200:
             break
 else:
     body += f"Problem z wczytaniem waluty na MDMS"
+    currencyStatus = 1
 
+if body and currencyStatus == 0:
+    body += f'<h2 style="color:green">WALUTY OK.</h2>'
 
 to_address = json.loads(to_address_str)
 msg = MIMEMultipart()
