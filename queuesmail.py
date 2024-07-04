@@ -76,7 +76,11 @@ for k,v in final_d.items():
 bc_currency = os.getenv('bc_currency')
 mdms_currency = os.getenv('mdms_currency')
 nbpEurUrl = os.getenv('nbpEurUrl')
-currencyStatus = 0 #chaning if theres any problem with currencies
+currencyStatus = 0 #changing if theres any problem with currencies
+nbpEur = 0 #in case of no NBP site working
+cdrlEur = 0
+mdmsEur = 0
+
 
 #nbp
 response = requests.get(nbpEurUrl, auth=HTTPBasicAuth(username, user_password))
@@ -85,7 +89,7 @@ if response.status_code == 200:
     # print(data)
     nbpEur = data['rates'][0]['mid']
 else:
-    body += f"Problem z odpytaniem strony NBP.\n"
+    body += f'<h2 style="color:red">Problem z odpytaniem strony NBP.</h2>\n'
     currencyStatus = 1
  
 #cdrl
@@ -94,11 +98,13 @@ if response.status_code == 200:
     data = response.json()
     for line in data['value']:
         if line['Code'] == 'EUR':
+            cdrlEur = line['ExchangeRateAmt']
             if line['ExchangeRateAmt'] != nbpEur:
-                body += f"Błedna waluta na CDRL.\n Poprawna -> {nbpEur} obecna -> {line['ExchangeRateAmt']}"
+                currencyStatus = 1
+                body += f'<h2 style="color:red">Błedna waluta na CDRL.\n Poprawna -> {nbpEur} obecna -> {line['ExchangeRateAmt']}</h2>\n'
             break
 else:
-    body += f"Problem z wczytaniem waluty na CDRL"
+    body += f'<h2 style="color:red">Problem z wczytaniem waluty na CDRL</h2>\n'
     currencyStatus = 1
     
 #mdms_currency
@@ -107,15 +113,21 @@ if response.status_code == 200:
     data = response.json()
     for line in data['value']:
         if line['Code'] == 'EUR':
+            mdmsEur = line['ExchangeRateAmt']
             if line['ExchangeRateAmt'] != nbpEur:
-                body += f"Błedna waluta na MDMS.\n Poprawna -> {nbpEur} obecna -> {line['ExchangeRateAmt']}"
+                currencyStatus = 1
+                body += f'<h2 style="color:red">Błedna waluta na MDMS.\n Poprawna -> {nbpEur} obecna -> {line['ExchangeRateAmt']}</h2>\n'
             break
 else:
-    body += f"Problem z wczytaniem waluty na MDMS"
+    body += f'<h2 style="color:red">Problem z wczytaniem waluty na MDMS</h2>\n'
     currencyStatus = 1
 
 if body and currencyStatus == 0:
-    body += f'<h2 style="color:green">WALUTY OK.</h2>'
+    body += f'<h3>NPB: {nbpEur}</h3>\n<h3>CDRL EUR: {nbpEur}</h3>\n<h3>MDMS EUR: {nbpEur}</h3>\n<h3 style="color:green">WALUTY OK.</h3>\n'
+
+#if no quques error and currency has at least one
+if not queues_with_error and currencyStatus == 1:
+    body += f'<h2 style="color:green">Brak błędów na kolejkach.</h2>'
 
 to_address = json.loads(to_address_str)
 msg = MIMEMultipart()
@@ -127,7 +139,8 @@ msg['Subject'] = f"Sprzawdzenie kolejek data: {formatDateTime}."
 if body:
     msg.attach(MIMEText(body, 'html'))
 else:
-    msg.attach(MIMEText("Brak błędów. Waluty ok.", 'html'))
+
+    msg.attach(MIMEText(f'<h2 style="color:green">Brak błędów</h2>\n<h3>NPB: {nbpEur}</h3>\n<h3>CDRL EUR: {nbpEur}</h3>\n<h3>MDMS EUR: {nbpEur}</h3>\n<h3 style="color:green">WALUTY OK.</h3>\n', 'html'))
 try:
     server = smtplib.SMTP('smtp-mail.outlook.com', 587)
     server.starttls()
