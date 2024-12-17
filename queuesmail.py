@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import json
 from requests.auth import HTTPBasicAuth
 import os
+import pyodbc
 
 
 load_dotenv()
@@ -23,7 +24,8 @@ mdms_url = os.getenv('bc_mdms_url')
 
 now = datetime.now()
 formatDateTime = now.strftime("%d/%m/%Y %H:%M")
-
+db_date = now.strftime("%Y-%m-%d")
+db_time = now.strftime("%H:%M")
 
 response = requests.get(url, auth=HTTPBasicAuth(username, user_password))
 final_d = {}
@@ -38,6 +40,7 @@ if response.status_code == 200:
                         'Object_Caption_to_Run': row['Object_Caption_to_Run'],
                         'Description': row['Description'],
                         'Error_Message': row['Error_Message'],
+                        'ID': row['ID']
                          }        
 else:
     with open ('logfile.log', 'a') as file:
@@ -56,7 +59,8 @@ if response.status_code == 200:
                         'Object_Caption_to_Run': row['Object_Caption_to_Run'],
                         'Description': row['Description'],
                         'Error_Message': row['Error_Message'],
-                         }        
+                        'ID': row['ID']
+                        }        
 else:
     with open ('logfile.log', 'a') as file:
             file.write(f"""{formatDateTime} Problem z uzyskaniem odpowiedzi""")
@@ -66,9 +70,12 @@ body = ""
 
 ignore_queues = [] #by Object_ID_to_Run INT
 queues_with_error = []
+db_queues = {}
 for k,v in final_d.items():
     if v['Status'] == 'Error' and v['Object_ID_to_Run'] not in ignore_queues:
-        queues_with_error.append(f"""{v['Object_Caption_to_Run']} - {v['Description']}""")
+        queues_with_error.append(f"""{v['ID']} - {v['Object_Caption_to_Run']} - {v['Description']}""")
+        task_name = f"{v['Object_Caption_to_Run']} - {v['Description']}"
+        db_queues[v['ID']] = {"task_name": task_name}
         body += f"""<h1 style="color:red">Kolejka: {v['Object_Caption_to_Run']} - {v['Description']}</h1>\n
         <h2>Bład: {v['Error_Message']}</h2>\n"""
 #print(body)   
@@ -91,7 +98,7 @@ if response.status_code == 200:
 else:
     body += f'<h2 style="color:red">Problem z odpytaniem strony NBP.</h2>\n'
     currencyStatus = 1
- 
+
 #cdrl
 response = requests.get(bc_currency, auth=HTTPBasicAuth(username, user_password))
 if response.status_code == 200:
@@ -159,3 +166,32 @@ with open ('executes.log', 'a') as file:
             file.write(f"""{queue}\n""")
     else:
         file.write(f"""{formatDateTime} - Brak błędów\n""")
+
+
+# insert to db statistics
+try:
+    server = os.getenv('db_server')
+    database = os.getenv('db_db')
+    username = os.getenv('db_user')
+    password = os.getenv('db_password')
+
+    # Connect to SQL Server
+    conn = pyodbc.connect(
+        f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}"
+    )
+    cursor = conn.cursor()
+    for id,data in db_queues.items():
+        task_name = data["task_name"]
+        cursor.execute(
+        """
+        INSERT INTO disconnected_queues (task_name, date, time, queue_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        (task_name, db_date, db_time, id)
+    )
+
+# Commit the transaction
+    conn.commit()
+except Exception as e:
+    with open ('logfile.log', 'a') as file:
+        file.write(f"""{formatDateTime} Problem with database improt: {str(e)}\n""")
