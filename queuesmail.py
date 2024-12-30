@@ -35,13 +35,21 @@ if response.status_code == 200:
     data = response.json()
     for row in data['value']:
         key = row['ID']
-        final_d[key] = {'Status': row['Status'],
-                        'Object_ID_to_Run': row['Object_ID_to_Run'],
-                        'Object_Caption_to_Run': row['Object_Caption_to_Run'],
-                        'Description': row['Description'],
-                        'Error_Message': row['Error_Message'],
-                        'ID': row['ID']
-                         }        
+        final_d[key] = {
+            'Status': row['Status'],
+            'Object_ID_to_Run': row['Object_ID_to_Run'],
+            'Object_Caption_to_Run': row['Object_Caption_to_Run'],
+            'Description': row['Description'],
+            'Error_Message': row['Error_Message'],
+            'ID': row['ID'],
+            'User_ID': row['User_ID'],
+            'Object_Type_to_Run': row['Object_Type_to_Run'],
+            'Object_ID_to_Run': row['Object_ID_to_Run'],
+            'Object_Caption_to_Run': row['Object_Caption_to_Run'], 
+            'Description': row['Description'], 
+            'Error_Message': row['Error_Message']  
+        }
+     
 else:
     with open ('logfile.log', 'a') as file:
             file.write(f"""{formatDateTime} Problem z uzyskaniem odpowiedzi""")
@@ -54,18 +62,25 @@ if response.status_code == 200:
     data = response.json()
     for row in data['value']:
         key = row['ID']
-        final_d[key] = {'Status': row['Status'],
-                        'Object_ID_to_Run': row['Object_ID_to_Run'],
-                        'Object_Caption_to_Run': row['Object_Caption_to_Run'],
-                        'Description': row['Description'],
-                        'Error_Message': row['Error_Message'],
-                        'ID': row['ID']
-                        }        
+        final_d[key] = {
+            'Status': row['Status'],
+            'Object_ID_to_Run': row['Object_ID_to_Run'],
+            'Object_Caption_to_Run': row['Object_Caption_to_Run'],
+            'Description': row['Description'],
+            'Error_Message': row['Error_Message'],
+            'ID': row['ID'],
+            'User_ID': row['User_ID'],
+            'Object_Type_to_Run': row['Object_Type_to_Run'],
+            'Object_ID_to_Run': row['Object_ID_to_Run'],
+            'Object_Caption_to_Run': row['Object_Caption_to_Run'], 
+            'Description': row['Description'], 
+            'Error_Message': row['Error_Message']  
+        }     
 else:
     with open ('logfile.log', 'a') as file:
             file.write(f"""{formatDateTime} Problem z uzyskaniem odpowiedzi""")
-#for k,v in final_d.items():
-#    print(k, v)
+for k,v in final_d.items():
+   print(k, v)
 body = "" 
 
 ignore_queues = [] #by Object_ID_to_Run INT
@@ -75,7 +90,16 @@ for k,v in final_d.items():
     if v['Status'] == 'Error' and v['Object_ID_to_Run'] not in ignore_queues:
         queues_with_error.append(f"""{v['ID']} - {v['Object_Caption_to_Run']} - {v['Description']}""")
         task_name = f"{v['Object_Caption_to_Run']} - {v['Description']}"
-        db_queues[v['ID']] = {"task_name": task_name}
+        db_queues[v['ID']] = {
+            "task_name": task_name,
+            "User_ID": v['User_ID'],
+            "Object_Type_to_Run": v['Object_Type_to_Run'],
+            "Object_ID_to_Run": v['Object_ID_to_Run'],
+            "Object_Caption_to_Run": v['Object_Caption_to_Run'],
+            "Description": v['Description'],
+            "Error_Message": v['Error_Message']
+        }
+
         body += f"""<h1 style="color:red">Kolejka: {v['Object_Caption_to_Run']} - {v['Description']}</h1>\n
         <h2>Bład: {v['Error_Message']}</h2>\n"""
 #print(body)   
@@ -180,15 +204,27 @@ try:
         f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}"
     )
     cursor = conn.cursor()
-    for id,data in db_queues.items():
+    for id, data in db_queues.items():
         task_name = data["task_name"]
+        user_id = data["User_ID"]
+        object_type_to_run = data["Object_Type_to_Run"]
+        object_id_to_run = data["Object_ID_to_Run"]
+        object_caption_to_run = data["Object_Caption_to_Run"]
+        description = data["Description"]
+        error_message = data["Error_Message"]
+
         cursor.execute(
-        """
-        INSERT INTO disconnected_queues (task_name, date, time, queue_id)
-        VALUES (?, ?, ?, ?)
-        """,
-        (task_name, db_date, db_time, id)
-    )
+            """
+            INSERT INTO disconnected_queues (
+                task_name, date, time, queue_id, User_ID, Object_Type_to_Run,
+                Object_ID_to_Run, Object_Caption_to_Run, Description, Error_Message
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (task_name, db_date, db_time, id, user_id, object_type_to_run,
+            object_id_to_run, object_caption_to_run, description, error_message)
+        )
+
 
 # Commit the transaction
     conn.commit()
